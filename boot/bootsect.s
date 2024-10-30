@@ -48,16 +48,16 @@
 	.equ ROOT_DEV, 0x301
 	ljmp    $BOOTSEG, $_start
 _start:
-	mov	$BOOTSEG, %ax	#将ds段寄存器设置为0x7C0
+	mov	$BOOTSEG, %ax		# ds = $BOOTSEG = 0x7C0
 	mov	%ax, %ds
-	mov	$INITSEG, %ax	#将es段寄存器设置为0x900
+	mov	$INITSEG, %ax		# es = $INITSEG = 0x9000
 	mov	%ax, %es
-	mov	$256, %cx		#设置移动计数值256字
-	sub	%si, %si		#源地址	ds:si = 0x07C0:0x0000
-	sub	%di, %di		#目标地址 es:si = 0x9000:0x0000
-	rep					#重复执行并递减cx的值
-	movsw				#从内存[si]处移动cx个字到[di]处
-	ljmp	$INITSEG, $go	#段间跳转，这里INITSEG指出跳转到的段地址，解释了cs的值为0x9000
+	mov	$256, %cx			# cx = 256
+	sub	%si, %si			# si = 0
+	sub	%di, %di			# di = 0
+	rep						# 和 movsw 一起使用，重复执行 cx/ecx 次
+	movsw					# 从 ds:si 处移动 cx=256 个字到 es:di 地址处 
+	ljmp	$INITSEG, $go		#段间跳转，这里INITSEG指出跳转到的段地址，解释了cs的值为0x9000
 go:	mov	%cs, %ax		#将ds，es，ss都设置成移动后代码所在的段处(0x9000)
 	mov	%ax, %ds
 	mov	%ax, %es

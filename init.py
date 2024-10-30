@@ -29,12 +29,8 @@ gdb.events.stop.connect(stop_handler)
 gdb.execute('file tools/system')
 gdb.execute('set architecture i386')
 gdb.execute('target remote :1234')
-gdb.execute('b main')
+gdb.execute('b *0x7C00')            # 进入到的是 boot/bootsect.s 的 _start 处，此时可以调试 bootsect
+                                    #（注：gdb打印的pc是eip，而非 x86 的 cs:eip)
+                                    # 在进入 bootsec 时，cs=0，此时设置断点地址到 0x7C00 即可
+
 gdb.execute('c')
-
-# Set a breakpoint on trampoline
-# All user traps go here.
-# gdb.execute('hb *0x3ffffff000')
-
-# User program entry
-# gdb.execute('hb *0x0')
