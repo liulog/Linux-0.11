@@ -76,6 +76,8 @@ bad_sys_call:
 reschedule:
 	pushl $ret_from_sys_call
 	jmp schedule
+
+# align 2 表示按照 2^2 = 4 字节对齐
 .align 2
 system_call:
 	cmpl $nr_system_calls-1,%eax

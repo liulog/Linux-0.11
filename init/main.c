@@ -20,9 +20,12 @@
  * won't be any messing with the stack from main(), but we define
  * some others too.
  */
+// __attribute__((always_inline)) gcc 扩展，告诉编译器强制内联该函数, 不应该忽视
 static inline fork(void) __attribute__((always_inline));
 static inline pause(void) __attribute__((always_inline));
-static inline _syscall0(int,fork)
+// static 表示该函数仅在当前文件内可见, 而不能被其他文件引用
+// inline 提示编译器尽可能将该函数的代码嵌入到调用该函数的地方
+static inline _syscall0(int,fork)	// 包装系统调用 fork, 表示这是一个不带参数的系统调用, 返回类型为 int
 static inline _syscall0(int,pause)
 static inline _syscall1(int,setup,void *,BIOS)
 static inline _syscall0(int,sync)

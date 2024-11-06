@@ -33,7 +33,7 @@
 	begbss:
 	.text
 
-	.equ SETUPLEN, 4		# nr of setup-sectors
+	.equ SETUPLEN, 4		# nr of setup-sectors, .equ 定义常量，不占据空间，在后续会被替换
 	.equ BOOTSEG, 0x07c0		# original address of boot-sector
 	.equ INITSEG, 0x9000		# we move boot here - out of the way
 	.equ SETUPSEG, 0x9020		# setup starts here
@@ -43,8 +43,19 @@
 # ROOT_DEV:	0x000 - same type of floppy as boot.
 #		0x301 - first partition on first drive etc
 #
-##和源码不同，源码中是0x306 第2块硬盘的第一个分区
+## 和源码不同，源码中是0x306 第2块硬盘的第一个分区
+# 
+#（dev_no = (major << 8) + minor）。
+# 这里的主设备号是事先定义好的（1-内存，2-磁盘，3-硬盘，4-ttyx，5-tty，6-并行口，7-非命名管道），譬如对于硬盘，主设备号为3，因此3*256+0=0x300 即为系统中第一个硬盘的设备号
 #
+# 0x300 表示第1个硬盘
+# 0x301 表示第1个硬盘的第1个分区
+# 0x302 表示第1个硬盘的第2个分区
+# ...
+# 0x305 表示第2个硬盘
+# 0x306 表示第2个硬盘的第1个分区
+# ...
+# 
 	.equ ROOT_DEV, 0x301
 	ljmp    $BOOTSEG, $_start
 _start:
@@ -55,14 +66,15 @@ _start:
 	mov	$256, %cx			# cx = 256
 	sub	%si, %si			# si = 0
 	sub	%di, %di			# di = 0
-	rep						# 和 movsw 一起使用，重复执行 cx/ecx 次
-	movsw					# 从 ds:si 处移动 cx=256 个字到 es:di 地址处 
-	ljmp	$INITSEG, $go		#段间跳转，这里INITSEG指出跳转到的段地址，解释了cs的值为0x9000
-go:	mov	%cs, %ax		#将ds，es，ss都设置成移动后代码所在的段处(0x9000)
-	mov	%ax, %ds
+	rep						# 和 movsw 一起使用，重复执行 cx/ecx 次, 从 ds:si 处移动 cx=256 个字到 es:di 地址处 
+	movsw					# bootsec 把自己从 0x7C00 处移动到 0x90000 处
+	ljmp	$INITSEG, $go	# long jump 段间跳转，这里 INITSEG 指出跳转到的段地址 0x9000，解释了 cs 的值为 0x9000, $go 相对于段首的偏移量
+							# ljmp 指令, 修改 cs 和 eip, 然后跳转到对应的位置
+go:	mov	%cs, %ax			# 将ds，es，ss都设置成移动后代码所在的段处(0x9000)
+	mov	%ax, %ds			# ds = es = ds = ss = 0x9000
 	mov	%ax, %es
 # put stack at 0x9ff00.
-	mov	%ax, %ss
+	mov	%ax, %ss			# 栈顶 = 0x90000 + 0xfff0 = 0x9ff00
 	mov	$0xFF00, %sp		# arbitrary value >>512
 
 # load the setup-sectors directly after the bootblock.
