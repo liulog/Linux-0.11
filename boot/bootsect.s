@@ -83,8 +83,8 @@ go:	mov	%cs, %ax			# 将ds，es，ss都设置成移动后代码所在的段处(0
 #
 ##ah=0x02 读磁盘扇区到内存	al＝需要独出的扇区数量
 ##ch=磁道(柱面)号的低八位   cl＝开始扇区(位0-5),磁道号高2位(位6－7)
-##dh=磁头号					dl=驱动器号(硬盘则7要置位)
-##es:bx ->指向数据缓冲区；如果出错则CF标志置位,ah中是出错码
+##dh=磁头号				  dl=驱动器号(硬盘则7要置位)
+##es:bx ->指向数据缓冲区；如果出错则CF标志置位, ah中是出错码
 #
 load_setup:
 	mov	$0x0000, %dx		# drive 0, head 0
@@ -92,7 +92,7 @@ load_setup:
 	mov	$0x0200, %bx		# address = 512, in INITSEG
 	.equ    AX, 0x0200+SETUPLEN
 	mov     $AX, %ax		# service 2, nr of sectors
-	int	$0x13			# read it
+	int	$0x13			    # read it
 	jnc	ok_load_setup		# ok - continue
 	mov	$0x0000, %dx
 	mov	$0x0000, %ax		# reset the diskette

@@ -1,3 +1,6 @@
+// esp 是 0特权栈,  iret 之后变成3特权, 用户栈即之前的 user_stack
+// ss 0x17、esp
+// 特权级是基于段的, ss
 #define move_to_user_mode() \
 __asm__ ("movl %%esp,%%eax\n\t" \
 	"pushl $0x17\n\t" \

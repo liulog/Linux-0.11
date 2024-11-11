@@ -154,11 +154,14 @@ int copy_page_tables(unsigned long from,unsigned long to,long size)
 	unsigned long this_page;
 	unsigned long * from_dir, * to_dir;
 	unsigned long nr;
-
+	// 体系结构要求 4M 对齐, 一个页目录表项对应 4M
 	if ((from&0x3fffff) || (to&0x3fffff))
 		panic("copy_page_tables called with wrong alignment");
+	// 计算 from 在页目录表中的表项的地址 (一项4字节)
 	from_dir = (unsigned long *) ((from>>20) & 0xffc); /* _pg_dir = 0 */
+	// 计算 to 在页目录表中的表项的地址
 	to_dir = (unsigned long *) ((to>>20) & 0xffc);
+	// 限长, 按照 4MB 分配
 	size = ((unsigned) (size+0x3fffff)) >> 22;
 	for( ; size-->0 ; from_dir++,to_dir++) {
 		if (1 & *to_dir)

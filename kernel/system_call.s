@@ -77,23 +77,23 @@ reschedule:
 	pushl $ret_from_sys_call
 	jmp schedule
 
-# align 2 表示按照 2^2 = 4 字节对齐
+# align 2 表示存储按照 2^2 = 4 字节对齐
 .align 2
 system_call:
-	cmpl $nr_system_calls-1,%eax
+	cmpl $nr_system_calls-1,%eax	# 系统调用的数量是确定的
 	ja bad_sys_call
-	push %ds
+	push %ds		# 
 	push %es
 	push %fs
 	pushl %edx
 	pushl %ecx		# push %ebx,%ecx,%edx as parameters
 	pushl %ebx		# to the system call
-	movl $0x10,%edx		# set up ds,es to kernel space
+	movl $0x10,%edx		# 0x10 = 10|000 内核数据段 set up ds,es to kernel space
 	mov %dx,%ds
 	mov %dx,%es
-	movl $0x17,%edx		# fs points to local data space
+	movl $0x17,%edx		# 0x17 用户数据段 fs points to local data space
 	mov %dx,%fs
-	call *sys_call_table(,%eax,4)
+	call *sys_call_table(,%eax,4)	# 调用 sys_call_table
 	pushl %eax
 	movl current,%eax
 	cmpl $0,state(%eax)		# state

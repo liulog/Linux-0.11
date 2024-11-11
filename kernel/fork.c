@@ -42,19 +42,20 @@ int copy_mem(int nr,struct task_struct * p)
 	unsigned long old_data_base,new_data_base,data_limit;
 	unsigned long old_code_base,new_code_base,code_limit;
 
-	code_limit=get_limit(0x0f);
-	data_limit=get_limit(0x17);
+	code_limit=get_limit(0x0f);	// 用户态代码段  selector｜G/L｜PL
+	data_limit=get_limit(0x17);	// 用户态数据段
 	old_code_base = get_base(current->ldt[1]);
 	old_data_base = get_base(current->ldt[2]);
 	if (old_data_base != old_code_base)
 		panic("We don't support separate I&D");
 	if (data_limit < code_limit)
 		panic("Bad data_limit");
-	new_data_base = new_code_base = nr * 0x4000000;
+	new_data_base = new_code_base = nr * 0x4000000; // 证据: 所有进程依次排列, 一个进程 64M
+													// 代码段和数据段的段基址
 	p->start_code = new_code_base;
-	set_base(p->ldt[1],new_code_base);
+	set_base(p->ldt[1],new_code_base);				// 代码段
 	set_base(p->ldt[2],new_data_base);
-	if (copy_page_tables(old_data_base,new_data_base,data_limit)) {
+	if (copy_page_tables(old_data_base,new_data_base,data_limit)) {	
 		printk("free_page_tables: from copy_mem\n");
 		free_page_tables(new_data_base,data_limit);
 		return -ENOMEM;
@@ -67,10 +68,10 @@ int copy_mem(int nr,struct task_struct * p)
  * information (task[nr]) and sets up the necessary registers. It
  * also copies the data segment in it's entirety.
  */
-int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
+int copy_process(int nr,long ebp,long edi,long esi,long gs,long none, // sys_fork 压的栈以及 call *sys_call_table(,%eax,4) 压入的返回地址 none
 		long ebx,long ecx,long edx,
-		long fs,long es,long ds,
-		long eip,long cs,long eflags,long esp,long ss)
+		long fs,long es,long ds,						// system_call 中压入的 ds, es, fs, edx, ecx, ebx
+		long eip,long cs,long eflags,long esp,long ss)	// int $0x80 硬件压的栈
 {
 	struct task_struct *p;
 	int i;
@@ -95,15 +96,15 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->cutime = p->cstime = 0;
 	p->start_time = jiffies;
 	p->tss.back_link = 0;
-	p->tss.esp0 = PAGE_SIZE + (long) p;
-	p->tss.ss0 = 0x10;
-	p->tss.eip = eip;
+	p->tss.esp0 = PAGE_SIZE + (long) p;	// esp0 内核栈
+	p->tss.ss0 = 0x10;			// 内核数据段
+	p->tss.eip = eip;			// 父进程 int $0x80 压栈的 eip
 	p->tss.eflags = eflags;
-	p->tss.eax = 0;
+	p->tss.eax = 0;				// eax 都写为 0, fork 返回值
 	p->tss.ecx = ecx;
 	p->tss.edx = edx;
 	p->tss.ebx = ebx;
-	p->tss.esp = esp;
+	p->tss.esp = esp;			// 父进程当时的 esp（esp3） 数据（用户栈）
 	p->tss.ebp = ebp;
 	p->tss.esi = esi;
 	p->tss.edi = edi;
@@ -113,7 +114,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->tss.ds = ds & 0xffff;
 	p->tss.fs = fs & 0xffff;
 	p->tss.gs = gs & 0xffff;
-	p->tss.ldt = _LDT(nr);
+	p->tss.ldt = _LDT(nr);		// 计算对应的 ldt
 	p->tss.trace_bitmap = 0x80000000;
 	if (last_task_used_math == current)
 		__asm__("clts ; fnsave %0"::"m" (p->tss.i387));
@@ -131,6 +132,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 		current->root->i_count++;
 	if (current->executable)
 		current->executable->i_count++;
+	// 设置 gdt 中的 tss 和 ldt
 	set_tss_desc(gdt+(nr<<1)+FIRST_TSS_ENTRY,&(p->tss));
 	set_ldt_desc(gdt+(nr<<1)+FIRST_LDT_ENTRY,&(p->ldt));
 	p->state = TASK_RUNNING;	/* do this last, just in case */
@@ -142,6 +144,7 @@ int find_empty_process(void)
 	int i;
 
 	repeat:
+		// last_pid 的类型为 long, 有符号, 并且是一个全局累加值
 		if ((++last_pid)<0) last_pid=1;
 		for(i=0 ; i<NR_TASKS ; i++)
 			if (task[i] && task[i]->pid == last_pid) goto repeat;
