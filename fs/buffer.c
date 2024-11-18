@@ -38,9 +38,9 @@ int NR_BUFFERS = 0;
 
 static inline void wait_on_buffer(struct buffer_head * bh)
 {
-	cli();
+	cli();						// 关闭中断, 与当前这个进程有关系
 	while (bh->b_lock)
-		sleep_on(&bh->b_wait);
+		sleep_on(&bh->b_wait);	// bh 是全局的
 	sti();
 }
 
@@ -267,7 +267,7 @@ void brelse(struct buffer_head * buf)
  * bread() reads a specified block and returns the buffer that contains
  * it. It returns NULL if the block was unreadable.
  */
-struct buffer_head * bread(int dev,int block)
+struct buffer_head * bread(int dev,int block)			// block 读取到缓冲区中
 {
 	struct buffer_head * bh;
 
@@ -364,7 +364,7 @@ void buffer_init(long buffer_end)
 		h->b_count = 0;
 		h->b_lock = 0;
 		h->b_uptodate = 0;
-		h->b_wait = NULL;
+		h->b_wait = NULL;		// buffer_init 时 b_wait 都设置为 NULL
 		h->b_next = NULL;
 		h->b_prev = NULL;
 		h->b_data = (char *) b;

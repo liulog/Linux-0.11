@@ -232,7 +232,7 @@ gdt_descr:
 	.long gdt		# magic number, but it works for me :^)
 
 	.align 8
-idt:	.fill 256,8,0		# idt is uninitialized
+idt:	.fill 256,8,0		# idt is uninitialized, idt 
 
 gdt:	.quad 0x0000000000000000	/* NULL descriptor */
 	.quad 0x00c09a0000000fff	/* 16Mb */

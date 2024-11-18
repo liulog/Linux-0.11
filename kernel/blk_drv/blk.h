@@ -24,12 +24,12 @@ struct request {
 	int dev;		/* -1 if no request */
 	int cmd;		/* READ or WRITE */
 	int errors;
-	unsigned long sector;
-	unsigned long nr_sectors;
+	unsigned long sector;				// 块号
+	unsigned long nr_sectors;			// 块数量
 	char * buffer;
 	struct task_struct * waiting;
-	struct buffer_head * bh;
-	struct request * next;
+	struct buffer_head * bh;			// buffer_head
+	struct request * next;				// request 链表
 };
 
 /*
@@ -42,12 +42,13 @@ struct request {
 ((s1)->dev < (s2)->dev || ((s1)->dev == (s2)->dev && \
 (s1)->sector < (s2)->sector))))
 
+// 初始化时, 挂了 request_fn, 没有挂 current_request
 struct blk_dev_struct {
 	void (*request_fn)(void);
-	struct request * current_request;
+	struct request * current_request;	// 构成一个链表, 跟设备绑定, 一个设备一个 current_request
 };
 
-extern struct blk_dev_struct blk_dev[NR_BLK_DEV];
+extern struct blk_dev_struct blk_dev[NR_BLK_DEV];	// 7个 blk_dev
 extern struct request request[NR_REQUEST];
 extern struct task_struct * wait_for_request;
 
@@ -79,7 +80,7 @@ extern struct task_struct * wait_for_request;
 /* harddisk */
 #define DEVICE_NAME "harddisk"
 #define DEVICE_INTR do_hd
-#define DEVICE_REQUEST do_hd_request
+#define DEVICE_REQUEST do_hd_request			// MAJOR_NR=3 挂着 do_hd_request
 #define DEVICE_NR(device) (MINOR(device)/5)
 #define DEVICE_ON(device)
 #define DEVICE_OFF(device)
@@ -106,7 +107,7 @@ static inline void unlock_buffer(struct buffer_head * bh)
 	wake_up(&bh->b_wait);
 }
 
-static inline void end_request(int uptodate)
+static inline void end_request(int uptodate)		// uptodate = 1
 {
 	DEVICE_OFF(CURRENT->dev);
 	if (CURRENT->bh) {
@@ -118,10 +119,10 @@ static inline void end_request(int uptodate)
 		printk("dev %04x, block %d\n\r",CURRENT->dev,
 			CURRENT->bh->b_blocknr);
 	}
-	wake_up(&CURRENT->waiting);
-	wake_up(&wait_for_request);
-	CURRENT->dev = -1;
-	CURRENT = CURRENT->next;
+	wake_up(&CURRENT->waiting);			// 实际上没有执行
+	wake_up(&wait_for_request);			// 唤醒因为 req 数组没有空闲而 sleep 的进程
+	CURRENT->dev = -1;					// 当前设备是空闲的, 初始化时, 也都初始化 -1
+	CURRENT = CURRENT->next;			// 指向该块设备的下一个 request
 }
 
 #define INIT_REQUEST \

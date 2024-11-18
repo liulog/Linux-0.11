@@ -22,6 +22,7 @@
 #include <asm/io.h>
 #include <asm/segment.h>
 
+// 在 hd.c 中 MAJOR_NR = 3
 #define MAJOR_NR 3
 #include "blk.h"
 
@@ -187,7 +188,7 @@ static void hd_out(unsigned int drive,unsigned int nsect,unsigned int sect,
 		panic("Trying to write bad sector");
 	if (!controller_ready())
 		panic("HD controller not ready");
-	do_hd = intr_addr;
+	do_hd = intr_addr;	// 给 do_hd 挂上 intr_addr
 	outb_p(hd_info[drive].ctl,HD_CMD);
 	port=HD_DATA;
 	outb_p(hd_info[drive].wpcom>>2,++port);
@@ -258,8 +259,8 @@ static void read_intr(void)
 	CURRENT->errors = 0;
 	CURRENT->buffer += 512;
 	CURRENT->sector++;
-	if (--CURRENT->nr_sectors) {
-		do_hd = &read_intr;
+	if (--CURRENT->nr_sectors) {	// 一次只能读取一个 sector, 但是一个缓冲块对应 2个 sector
+		do_hd = &read_intr;			// 在发送端口处可以找到 sectors = 2
 		return;
 	}
 	end_request(1);
@@ -335,6 +336,7 @@ void do_hd_request(void)
 		}
 		port_write(HD_DATA,CURRENT->buffer,256);
 	} else if (CURRENT->cmd == READ) {
+		// read_intr
 		hd_out(dev,nsect,sec,head,cyl,WIN_READ,&read_intr);
 	} else
 		panic("unknown hd-command");
@@ -343,7 +345,8 @@ void do_hd_request(void)
 void hd_init(void)
 {
 	blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST;
-	set_intr_gate(0x2E,&hd_interrupt);
+	set_intr_gate(0x2E,&hd_interrupt);	// 设置中断门, hd_interrupt
+										// 就是操作中断描述符表
 	outb_p(inb_p(0x21)&0xfb,0x21);
 	outb(inb_p(0xA1)&0xbf,0xA1);
 }

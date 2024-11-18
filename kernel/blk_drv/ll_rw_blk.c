@@ -53,7 +53,7 @@ static inline void unlock_buffer(struct buffer_head * bh)
 	if (!bh->b_lock)
 		printk("ll_rw_block.c: buffer not locked\n\r");
 	bh->b_lock = 0;
-	wake_up(&bh->b_wait);
+	wake_up(&bh->b_wait);	// 唤醒 bh->b_wait
 }
 
 /*
@@ -66,17 +66,17 @@ static void add_request(struct blk_dev_struct * dev, struct request * req)
 	struct request * tmp;
 
 	req->next = NULL;
-	cli();
+	cli();									// ! 中断对应外设方向, lock 对应进程方向
 	if (req->bh)
-		req->bh->b_dirt = 0;
-	if (!(tmp = dev->current_request)) {
+		req->bh->b_dirt = 0;				// clear dirt, BADNESS
+	if (!(tmp = dev->current_request)) {	// dev 的第一个 request
 		dev->current_request = req;
 		sti();
-		(dev->request_fn)();
+		(dev->request_fn)();				// 设备绑定的 request_fn, 硬盘调用 do_hd_request
 		return;
 	}
-	for ( ; tmp->next ; tmp=tmp->next)
-		if ((IN_ORDER(tmp,req) || 
+	for ( ; tmp->next ; tmp=tmp->next)		// request 不是 dev 的第一个 request
+		if ((IN_ORDER(tmp,req) || 			// req 按电梯算法排队
 		    !IN_ORDER(tmp,tmp->next)) &&
 		    IN_ORDER(req,tmp->next))
 			break;
@@ -159,6 +159,7 @@ void blk_dev_init(void)
 	int i;
 
 	for (i=0 ; i<NR_REQUEST ; i++) {
+		// 初始化为 -1, => 请求项空闲的
 		request[i].dev = -1;
 		request[i].next = NULL;
 	}

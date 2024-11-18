@@ -154,9 +154,9 @@ void sleep_on(struct task_struct **p)
 
 	if (!p)
 		return;
-	if (current == &(init_task.task))
+	if (current == &(init_task.task))	// 进程 0 不会等一个缓冲块
 		panic("task[0] trying to sleep");
-	tmp = *p;
+	tmp = *p;		// *p 即是 b_wait
 	*p = current;
 	current->state = TASK_UNINTERRUPTIBLE;
 	schedule();
@@ -187,9 +187,9 @@ repeat:	current->state = TASK_INTERRUPTIBLE;
 
 void wake_up(struct task_struct **p)
 {
-	if (p && *p) {
-		(**p).state=0;
-		*p=NULL;
+	if (p && *p) {			// 先唤醒自己
+		(**p).state=0;		// RUNNING
+		*p=NULL;			// b_wait = NULL
 	}
 }
 

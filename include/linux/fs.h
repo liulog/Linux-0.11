@@ -73,7 +73,7 @@ struct buffer_head {
 	unsigned char b_dirt;		/* 0-clean,1-dirty */
 	unsigned char b_count;		/* users using this block */
 	unsigned char b_lock;		/* 0 - ok, 1 -locked */
-	struct task_struct * b_wait;
+	struct task_struct * b_wait;	// 等待这个 buffer 的 task_struct
 	struct buffer_head * b_prev;
 	struct buffer_head * b_next;
 	struct buffer_head * b_prev_free;
