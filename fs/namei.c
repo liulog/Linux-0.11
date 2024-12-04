@@ -91,12 +91,14 @@ static int match(int len,const char * name,struct dir_entry * de)
 static struct buffer_head * find_entry(struct m_inode ** dir,
 	const char * name, int namelen, struct dir_entry ** res_dir)
 {
+	// 返回一个 buffer_head
 	int entries;
 	int block,i;
 	struct buffer_head * bh;
 	struct dir_entry * de;
 	struct super_block * sb;
 
+	// 是否允许截断 truncate
 #ifdef NO_TRUNCATE
 	if (namelen > NAME_LEN)
 		return NULL;
@@ -104,6 +106,8 @@ static struct buffer_head * find_entry(struct m_inode ** dir,
 	if (namelen > NAME_LEN)
 		namelen = NAME_LEN;
 #endif
+
+	// 计算这个目录文件一共有多少目录项
 	entries = (*dir)->i_size / (sizeof (struct dir_entry));
 	*res_dir = NULL;
 	if (!namelen)
@@ -124,28 +128,34 @@ static struct buffer_head * find_entry(struct m_inode ** dir,
 			}
 		}
 	}
+	// 读取块号
 	if (!(block = (*dir)->i_zone[0]))
 		return NULL;
+	// 从 dev、block 读取块
 	if (!(bh = bread((*dir)->i_dev,block)))
 		return NULL;
 	i = 0;
 	de = (struct dir_entry *) bh->b_data;
+	// 遍历目录项
 	while (i < entries) {
+		// 超出了这个块, 新读一个块
 		if ((char *)de >= BLOCK_SIZE+bh->b_data) {
 			brelse(bh);
 			bh = NULL;
+			// bmap 获取指定文件的指定块号
 			if (!(block = bmap(*dir,i/DIR_ENTRIES_PER_BLOCK)) ||
-			    !(bh = bread((*dir)->i_dev,block))) {
+			    !(bh = bread((*dir)->i_dev,block))) {	// 计算下一个块号
 				i += DIR_ENTRIES_PER_BLOCK;
 				continue;
 			}
 			de = (struct dir_entry *) bh->b_data;
 		}
+		// 匹配目录项 name, de.name
 		if (match(namelen,name,de)) {
 			*res_dir = de;
 			return bh;
 		}
-		de++;
+		de++;	// dir_entry
 		i++;
 	}
 	brelse(bh);
@@ -219,6 +229,7 @@ static struct buffer_head * add_entry(struct m_inode * dir,
 	return NULL;
 }
 
+// topmost, 枝梢, 文件上一个目录对应的 inode
 /*
  *	get_dir()
  *
@@ -234,37 +245,48 @@ static struct m_inode * get_dir(const char * pathname)
 	int namelen,inr,idev;
 	struct dir_entry * de;
 
-	if (!current->root || !current->root->i_count)
+	// current 安装文件系统的进程
+
+	if (!current->root || !current->root->i_count)	// 没有安装好根文件系统
 		panic("No root inode");
 	if (!current->pwd || !current->pwd->i_count)
 		panic("No cwd inode");
-	if ((c=get_fs_byte(pathname))=='/') {
-		inode = current->root;
-		pathname++;
+
+	// inode = current->root / current->pwd, 根据这两个来判断
+	if ((c=get_fs_byte(pathname))=='/') {			// 以 '/' 起始
+		inode = current->root;						// inode 指向根inode, 从根目录起始
+		pathname++;									// 把 / 绕过了
 	} else if (c)
-		inode = current->pwd;
+		inode = current->pwd;						// inode 指向当前路径 inode, 从当前目录起始
 	else
 		return NULL;	/* empty name is bad */
-	inode->i_count++;
-	while (1) {
+	
+	inode->i_count++;	// 引用计数++
+
+	while (1) {			// 找 topmost, 目录对应的 inode
 		thisname = pathname;
-		if (!S_ISDIR(inode->i_mode) || !permission(inode,MAY_EXEC)) {
+		if (!S_ISDIR(inode->i_mode) || !permission(inode,MAY_EXEC)) {	// 检查是目录吗, 检查目录可否进入
 			iput(inode);
 			return NULL;
 		}
+
+		// 路径中一个 / 
 		for(namelen=0;(c=get_fs_byte(pathname++))&&(c!='/');namelen++)
 			/* nothing */ ;
+		
 		if (!c)
-			return inode;
+			return inode;	// 正常情况下, 在这里返回, topmost 的 inode
+		
+		// 得到目录项, 返回 bh
 		if (!(bh = find_entry(&inode,thisname,namelen,&de))) {
 			iput(inode);
 			return NULL;
 		}
-		inr = de->inode;
-		idev = inode->i_dev;
-		brelse(bh);
+		inr = de->inode;		// inode 号
+		idev = inode->i_dev;	// inode 的设备号
+		brelse(bh);				// 释放之前 find_entry 缓冲区 
 		iput(inode);
-		if (!(inode = iget(idev,inr)))
+		if (!(inode = iget(idev,inr))) // 读到 m_inode
 			return NULL;
 	}
 }
@@ -285,11 +307,16 @@ static struct m_inode * dir_namei(const char * pathname,
 	if (!(dir = get_dir(pathname)))
 		return NULL;
 	basename = pathname;
+	// 这里的 fs 是段寄存器, 不是文件系统
+	// 读取 fs:addr 处的字符给 c
 	while ((c=get_fs_byte(pathname++)))
 		if (c=='/')
 			basename=pathname;
-	*namelen = pathname-basename-1;
-	*name = basename;
+	// basename 找到最后一级目录 eg: /xxx/xxx/xx.c, basename 指向了 xx.c 的起始
+	// -1 把 \0 去除
+	*namelen = pathname-basename-1;	// namelen 就是纯文件的名, 不含路径的长度
+	*name = basename;				// name 指向了最后的文件名
+	// 返回这个 i 节点
 	return dir;
 }
 
@@ -300,29 +327,36 @@ static struct m_inode * dir_namei(const char * pathname,
  * Open, link etc use their own routines, but this is enough for things
  * like 'chmod' etc.
  */
+// 路径名 -> m_inode
+// ... inode -> 目录文件 -> inode -> 目录文件 ...
+// 目录项 -> 下一个目录/文件的 inode
 struct m_inode * namei(const char * pathname)
 {
 	const char * basename;
 	int inr,dev,namelen;
 	struct m_inode * dir;
 	struct buffer_head * bh;
-	struct dir_entry * de;
+	struct dir_entry * de;	// 目录文件, 目录项, inode号+name
 
+	// 找 topmost 的 inode, 返回的是 inode 指针
+	// namelen basename 会在函数中赋值
 	if (!(dir = dir_namei(pathname,&namelen,&basename)))
 		return NULL;
 	if (!namelen)			/* special case: '/usr/' etc */
 		return dir;
+	// 找回目录项 de
 	bh = find_entry(&dir,basename,namelen,&de);
 	if (!bh) {
 		iput(dir);
 		return NULL;
 	}
 	inr = de->inode;
-	dev = dir->i_dev;
+	dev = dir->i_dev;	// inode 的设备号
 	brelse(bh);
 	iput(dir);
-	dir=iget(dev,inr);
-	if (dir) {
+	// 根据设备号和 inode 号获取 inode
+	dir=iget(dev,inr);				// 读取 inode 到内存
+	if (dir) {						// dir
 		dir->i_atime=CURRENT_TIME;
 		dir->i_dirt=1;
 	}
@@ -334,7 +368,7 @@ struct m_inode * namei(const char * pathname)
  *
  * namei for open - this is in fact almost the whole open-routine.
  */
-int open_namei(const char * pathname, int flag, int mode,
+int open_namei(const char * pathname, int flag, int mode,	// mode 经过 ~022 掩码修改
 	struct m_inode ** res_inode)
 {
 	const char * basename;
@@ -347,6 +381,7 @@ int open_namei(const char * pathname, int flag, int mode,
 		flag |= O_WRONLY;
 	mode &= 0777 & ~current->umask;
 	mode |= I_REGULAR;
+	// topmost 对应 inode
 	if (!(dir = dir_namei(pathname,&namelen,&basename)))
 		return -ENOENT;
 	if (!namelen) {			/* special case: '/usr/' etc */
@@ -357,9 +392,10 @@ int open_namei(const char * pathname, int flag, int mode,
 		iput(dir);
 		return -EISDIR;
 	}
+	// 继续向下找目录下的文件的 inode, 返回 dir entry
 	bh = find_entry(&dir,basename,namelen,&de);
 	if (!bh) {
-		if (!(flag & O_CREAT)) {
+		if (!(flag & O_CREAT)) {	// 是否创建新文件
 			iput(dir);
 			return -ENOENT;
 		}
@@ -389,12 +425,15 @@ int open_namei(const char * pathname, int flag, int mode,
 		*res_inode = inode;
 		return 0;
 	}
+	// 得到 dir_entry 对应的 inode 号
 	inr = de->inode;
+	// 通过 dir 找到 dev 号
 	dev = dir->i_dev;
 	brelse(bh);
 	iput(dir);
 	if (flag & O_EXCL)
 		return -EEXIST;
+	// 根据 dev、inr 读取 inode
 	if (!(inode=iget(dev,inr)))
 		return -EACCES;
 	if ((S_ISDIR(inode->i_mode) && (flag & O_ACCMODE)) ||
@@ -405,6 +444,7 @@ int open_namei(const char * pathname, int flag, int mode,
 	inode->i_atime = CURRENT_TIME;
 	if (flag & O_TRUNC)
 		truncate(inode);
+	// 找到的 inode 返回给 res_inode
 	*res_inode = inode;
 	return 0;
 }

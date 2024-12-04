@@ -1,6 +1,7 @@
+// 将 fs:addr 处的第一个字符赋值给 _v
 static inline unsigned char get_fs_byte(const char * addr)
 {
-	unsigned register char _v;
+	unsigned register char _v;	// register 寄存器
 
 	__asm__ ("movb %%fs:%1,%0":"=r" (_v):"m" (*addr));
 	return _v;

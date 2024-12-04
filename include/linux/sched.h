@@ -101,7 +101,7 @@ struct task_struct {
 	struct m_inode * root;
 	struct m_inode * executable;
 	unsigned long close_on_exec;
-	struct file * filp[NR_OPEN];
+	struct file * filp[NR_OPEN];					// fopen 返回 下标, 一个进程最多打开20个文件
 /* ldt for this task 0 - zero 1 - cs 2 - ds&ss */
 	struct desc_struct ldt[3];
 /* tss for this task */

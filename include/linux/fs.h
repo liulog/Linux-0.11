@@ -80,6 +80,7 @@ struct buffer_head {
 	struct buffer_head * b_next_free;
 };
 
+// d -> disk
 struct d_inode {
 	unsigned short i_mode;
 	unsigned short i_uid;
@@ -90,6 +91,7 @@ struct d_inode {
 	unsigned short i_zone[9];
 };
 
+// m -> memory
 struct m_inode {
 	unsigned short i_mode;
 	unsigned short i_uid;
@@ -97,7 +99,7 @@ struct m_inode {
 	unsigned long i_mtime;
 	unsigned char i_gid;
 	unsigned char i_nlinks;
-	unsigned short i_zone[9];
+	unsigned short i_zone[9];		// 将 i_node 和 i_zone 绑起来, 7(直接块) + 1(一级间接块) + 1(二级间接块), i 节点和块的关系
 /* these are in memory also */
 	struct task_struct * i_wait;
 	unsigned long i_atime;
@@ -113,29 +115,32 @@ struct m_inode {
 	unsigned char i_update;
 };
 
+// inode 强调文件本身的属性
+// file 更强调用户使用的状态
 struct file {
 	unsigned short f_mode;
 	unsigned short f_flags;
 	unsigned short f_count;
-	struct m_inode * f_inode;
-	off_t f_pos;
+	struct m_inode * f_inode;	// 对应的 i 节点
+	off_t f_pos;				// 偏移
 };
 
 struct super_block {
 	unsigned short s_ninodes;
-	unsigned short s_nzones;
+	unsigned short s_nzones;			// 逻辑块数
 	unsigned short s_imap_blocks;
 	unsigned short s_zmap_blocks;
 	unsigned short s_firstdatazone;
 	unsigned short s_log_zone_size;
 	unsigned long s_max_size;
-	unsigned short s_magic;
+	unsigned short s_magic;				// 魔数, 标注一些属性信息
 /* These are only in memory */
-	struct buffer_head * s_imap[8];
-	struct buffer_head * s_zmap[8];
-	unsigned short s_dev;
-	struct m_inode * s_isup;
-	struct m_inode * s_imount;
+	struct buffer_head * s_imap[8];		// inode map i节点位图, 8块<缓冲区>, 并且在 buffer, 8kB = 64kb -> 64MB (最多管理的数据块, 数据量)
+	struct buffer_head * s_zmap[8];		// zone map 逻辑块位图, 8块<缓冲区>, 8kB = 64kb -> 64MB (一个块 1kB)
+	unsigned short s_dev;				// 设备号
+	struct m_inode * s_isup;			// 根设备 s_isup 和 s_imount 有关, 这个文件系统根 i 节点是谁
+	struct m_inode * s_imount;			// 被安装到的 i 节点, mount, 挂载到哪个位置
+
 	unsigned long s_time;
 	struct task_struct * s_wait;
 	unsigned char s_lock;
@@ -154,9 +159,10 @@ struct d_super_block {
 	unsigned short s_magic;
 };
 
-struct dir_entry {
-	unsigned short inode;
-	char name[NAME_LEN];
+// 目录项
+struct dir_entry {			// 16B, 一个块可以存放 64 个 dir_entry
+	unsigned short inode;	// inode 号【索引】
+	char name[NAME_LEN];	// name, 这里固定了长度 14
 };
 
 extern struct m_inode inode_table[NR_INODE];

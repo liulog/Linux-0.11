@@ -113,7 +113,7 @@ void main(void)		/* This really IS void, no error here. */
  * enable them
  */
 
- 	ROOT_DEV = ORIG_ROOT_DEV;
+ 	ROOT_DEV = ORIG_ROOT_DEV;			// ROOT_DEV
  	drive_info = DRIVE_INFO;
 	// 1MB + EXT_MEM, 具体的内容
 	memory_end = (1<<20) + (EXT_MEM_K<<10);
@@ -174,6 +174,38 @@ static char * envp_rc[] = { "HOME=/", NULL };
 
 static char * argv[] = { "-/bin/sh",NULL };
 static char * envp[] = { "HOME=/usr/root", NULL };
+
+
+// 物理设备
+// 
+// 逻辑设备（干活的，文件系统的装载单位，一个逻辑设备只有一个根i节点）
+// mount 挂载文件系统
+// 
+// 根文件系统 - 根设备 ROOT_DEV
+// 	先指定根设备(逻辑的), 装载根文件系统, 再 monut 其他
+// 
+// super_block 超级块, 这里是 8个
+// 	
+// 物理设备 [引导块 + 超级块... 超级块...], 分区就是分出来多个逻辑
+//	分区信息即是存储在引导块, 指示了各超级块的位置
+//  引导块 - 一个物理盘一个，超级块 - 一个逻辑盘一个
+//	引导块，物理盘都有（包括数据盘、系统盘）
+//	引导块的第一个扇区 -> 引导扇区, 0xAA55 表示分区表结束标志
+// 
+// 引导块 [ 超级块, i节点位图, 逻辑块位图, i节点， 数据块 ]
+//								｜--------------｜
+//									i节点和数据块通过 i节点的i_zone[9] 链接 
+//
+// 块是 OS 的概念
+// 设备号、块号（跟逻辑块位图有关） - 逻辑
+//
+// inode_table - 32项, m_inode 类型, 打开文件, 就要挂一个 i 节点, 不记录重复的
+// file_table  - 64项, file 类型, 允许重复, 整个系统打开的文件
+// task_struct 中 filp[20], 类型也是 file, 一个进程最多打开 20 个 file, fopen 返回的句柄
+//
+// inode_table 和 file_table 
+// 缓冲块大约 3k 个
+// 用 缓冲区 驻留数据
 
 void init(void)
 {

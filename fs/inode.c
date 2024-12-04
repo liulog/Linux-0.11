@@ -191,6 +191,7 @@ repeat:
 	return;
 }
 
+// inode_table[32] 中获取一个空间的 inode
 struct m_inode * get_empty_inode(void)
 {
 	struct m_inode * inode;
@@ -199,10 +200,10 @@ struct m_inode * get_empty_inode(void)
 
 	do {
 		inode = NULL;
-		for (i = NR_INODE; i ; i--) {
+		for (i = NR_INODE; i ; i--) { 	// 遍历整个 inode_table[32]
 			if (++last_inode >= inode_table + NR_INODE)
 				last_inode = inode_table;
-			if (!last_inode->i_count) {
+			if (!last_inode->i_count) {	// last_inode 第一次为第二项 inode_table[1]
 				inode = last_inode;
 				if (!inode->i_dirt && !inode->i_lock)
 					break;
@@ -219,9 +220,9 @@ struct m_inode * get_empty_inode(void)
 			write_inode(inode);
 			wait_on_inode(inode);
 		}
-	} while (inode->i_count);
-	memset(inode,0,sizeof(*inode));
-	inode->i_count = 1;
+	} while (inode->i_count);	// 引用计数
+	memset(inode,0,sizeof(*inode));	// 找到一个空闲的inode
+	inode->i_count = 1;			// 引用计数 +1
 	return inode;
 }
 
@@ -241,6 +242,9 @@ struct m_inode * get_pipe_inode(void)
 	return inode;
 }
 
+// 设备号\i 节点号 中找
+// 内存中 inode_table[32]
+// 都在块中, inode 也在某一个块上
 struct m_inode * iget(int dev,int nr)
 {
 	struct m_inode * inode, * empty;
@@ -249,11 +253,15 @@ struct m_inode * iget(int dev,int nr)
 		panic("iget with dev==0");
 	empty = get_empty_inode();
 	inode = inode_table;
+
+	// inode_table[32] 中有现成的就用现成的
 	while (inode < NR_INODE+inode_table) {
+		// i_dev, i_num, 设备号、块号
 		if (inode->i_dev != dev || inode->i_num != nr) {
 			inode++;
 			continue;
 		}
+		// 等待解锁
 		wait_on_inode(inode);
 		if (inode->i_dev != dev || inode->i_num != nr) {
 			inode = inode_table;
@@ -281,14 +289,15 @@ struct m_inode * iget(int dev,int nr)
 		if (empty)
 			iput(empty);
 		return inode;
-	}
+	} 
 	if (!empty)
 		return (NULL);
 	inode=empty;
-	inode->i_dev = dev;
-	inode->i_num = nr;
+	inode->i_dev = dev;			// 设备号
+	inode->i_num = nr;			// i节点号
+	// 读设备上的 inode, 从设备上读取到内存的 inode_table[32] 中对应的位置
 	read_inode(inode);
-	return inode;
+	return inode;	// 返回 inode_table 中对应的 inode
 }
 
 static void read_inode(struct m_inode * inode)
@@ -297,16 +306,22 @@ static void read_inode(struct m_inode * inode)
 	struct buffer_head * bh;
 	int block;
 
-	lock_inode(inode);
-	if (!(sb=get_super(inode->i_dev)))
+	// 找设备的 inode，先找超级块，可以知道 imap 和 zmap （读到了缓冲区中）
+	lock_inode(inode);					// 加锁, 避免竞争
+	if (!(sb=get_super(inode->i_dev)))	// 指定设备的超级块
 		panic("trying to read inode without dev");
+
+	// 计算 block 号, 这个 inode 对应inode号-1, （0号不用）
 	block = 2 + sb->s_imap_blocks + sb->s_zmap_blocks +
 		(inode->i_num-1)/INODES_PER_BLOCK;
+	// 读取对应的 inode
 	if (!(bh=bread(inode->i_dev,block)))
 		panic("unable to read i-node block");
+	// 将缓冲区中的 d_inode 拷贝到 m_inode 中
 	*(struct d_inode *)inode =
 		((struct d_inode *)bh->b_data)
 			[(inode->i_num-1)%INODES_PER_BLOCK];
+	// 临时用的, 释放缓冲区, 不代表从缓冲区逐出, 仅仅将引用计数 -1
 	brelse(bh);
 	unlock_inode(inode);
 }

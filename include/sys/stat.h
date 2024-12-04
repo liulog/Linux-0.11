@@ -17,12 +17,13 @@ struct stat {
 	time_t	st_ctime;
 };
 
-#define S_IFMT  00170000
-#define S_IFREG  0100000
-#define S_IFBLK  0060000
-#define S_IFDIR  0040000
-#define S_IFCHR  0020000
-#define S_IFIFO  0010000
+// 注：是 8 进制的数
+#define S_IFMT  00170000		// 文件类型, mask, 掩码
+#define S_IFREG  0100000		// 常规文件
+#define S_IFBLK  0060000		// 块设备
+#define S_IFDIR  0040000		// 目录文件
+#define S_IFCHR  0020000		// 字符设备文件
+#define S_IFIFO  0010000		// FIFO 特殊文件
 #define S_ISUID  0004000
 #define S_ISGID  0002000
 #define S_ISVTX  0001000

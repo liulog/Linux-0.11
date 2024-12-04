@@ -63,6 +63,8 @@ long rd_init(long mem_start, int length)
 	return(length);
 }
 
+// 虚拟盘：分配内存时，即把虚拟盘分配出来了, 虚拟盘的末端即主内存的起始端
+// 从软盘中读取
 /*
  * If the root device is the ram disk, try to load it.
  * In order to do this, the root device is originally set to the
@@ -102,7 +104,7 @@ void rd_load(void)
 	printk("Loading %d bytes into ram disk... 0000k", 
 		nblocks << BLOCK_SIZE_BITS);
 	cp = rd_start;
-	while (nblocks) {
+	while (nblocks) {	// 读软盘上的数据
 		if (nblocks > 2) 
 			bh = breada(ROOT_DEV, block, block+1, block+2, -1);
 		else

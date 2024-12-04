@@ -21,7 +21,10 @@ int file_read(struct m_inode * inode, struct file * filp, char * buf, int count)
 
 	if ((left=count)<=0)
 		return 0;
+
+	// 
 	while (left) {
+		// bmap 得到块号, f_pos 文件偏移 -> 换算出块号
 		if ((nr = bmap(inode,(filp->f_pos)/BLOCK_SIZE))) {
 			if (!(bh=bread(inode->i_dev,nr)))
 				break;
@@ -62,19 +65,20 @@ int file_write(struct m_inode * inode, struct file * filp, char * buf, int count
 	else
 		pos = filp->f_pos;
 	while (i<count) {
-		if (!(block = create_block(inode,pos/BLOCK_SIZE)))
+		if (!(block = create_block(inode,pos/BLOCK_SIZE)))	// 创建块
 			break;
 		if (!(bh=bread(inode->i_dev,block)))
 			break;
 		c = pos % BLOCK_SIZE;
 		p = c + bh->b_data;
+		// bh->b_dirt, 置脏 bit (*), 块被填写
 		bh->b_dirt = 1;
 		c = BLOCK_SIZE-c;
 		if (c > count-i) c = count-i;
 		pos += c;
 		if (pos > inode->i_size) {
 			inode->i_size = pos;
-			inode->i_dirt = 1;
+			inode->i_dirt = 1;	// inode->i_dirt, 同步 inode, inode 也被更新
 		}
 		i += c;
 		while (c-->0)

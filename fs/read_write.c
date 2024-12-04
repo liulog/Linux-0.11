@@ -52,6 +52,8 @@ int sys_lseek(unsigned int fd,off_t offset, int origin)
 	return file->f_pos;
 }
 
+// 注: 无法在两个进程间的代码跳转, ldt 限制了, 两个进程的代码段的值都一样, 无法实现远跳转
+
 int sys_read(unsigned int fd,char * buf,int count)
 {
 	struct file * file;
@@ -61,10 +63,11 @@ int sys_read(unsigned int fd,char * buf,int count)
 		return -EINVAL;
 	if (!count)
 		return 0;
-	verify_area(buf,count);
+	verify_area(buf,count);	// 判断缓冲区大小是否满足
 	inode = file->f_inode;
+	
 	if (inode->i_pipe)
-		return (file->f_mode&1)?read_pipe(inode,buf,count):-EIO;
+		return (file->f_mode&1)?read_pipe(inode,buf,count):-EIO;	// pipe 进程间通信,类似于把内存划分一块区域作为通信媒介
 	if (S_ISCHR(inode->i_mode))
 		return rw_char(READ,inode->i_zone[0],buf,count,&file->f_pos);
 	if (S_ISBLK(inode->i_mode))

@@ -44,6 +44,7 @@ static inline void wait_on_buffer(struct buffer_head * bh)
 	sti();
 }
 
+// 驻留进程 update, 隔段时间出来同步
 int sys_sync(void)
 {
 	int i;
@@ -53,8 +54,8 @@ int sys_sync(void)
 	bh = start_buffer;
 	for (i=0 ; i<NR_BUFFERS ; i++,bh++) {
 		wait_on_buffer(bh);
-		if (bh->b_dirt)
-			ll_rw_block(WRITE,bh);
+		if (bh->b_dirt)	// b_dirt
+			ll_rw_block(WRITE,bh);	// ll_rw_block -> make_request -> add_request...
 	}
 	return 0;
 }
@@ -231,7 +232,7 @@ repeat:
 	wait_on_buffer(bh);
 	if (bh->b_count)
 		goto repeat;
-	while (bh->b_dirt) {
+	while (bh->b_dirt) {		// sync_dev, getblk 引发, 把当前设备的脏块(缓冲区)同步
 		sync_dev(bh->b_dev);
 		wait_on_buffer(bh);
 		if (bh->b_count)
