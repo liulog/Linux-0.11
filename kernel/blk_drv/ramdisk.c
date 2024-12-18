@@ -74,27 +74,34 @@ void rd_load(void)
 {
 	struct buffer_head *bh;
 	struct super_block	s;
+	// 根文件系统映像文件在 boot 盘第 256 磁盘块开始处
 	int		block = 256;	/* Start at block 256 */
 	int		i = 1;
 	int		nblocks;
 	char		*cp;		/* Move pointer */
 	
-	if (!rd_length)
+	if (!rd_length)			// 没有虚拟盘
 		return;
 	printk("Ram disk: %d bytes, starting at 0x%x\n", rd_length,
 		(int) rd_start);
-	if (MAJOR(ROOT_DEV) != 2)
+	if (MAJOR(ROOT_DEV) != 2)	// 如果不是软盘, 那么就返回
 		return;
+
+	// 读软盘块 256+1, 256, 256+2
+	// block+1 指超级块
 	bh = breada(ROOT_DEV,block+1,block,block+2,-1);
 	if (!bh) {
 		printk("Disk error while looking for ramdisk!\n");
 		return;
 	}
+	// 将 s 指向缓冲区中的磁盘超级块
 	*((struct d_super_block *) &s) = *((struct d_super_block *) bh->b_data);
 	brelse(bh);
 	if (s.s_magic != SUPER_MAGIC)
 		/* No ram disk image present, assume normal floppy boot */
 		return;
+
+	// 如果数据块数大于内存中虚拟盘所能容纳的块数，则不能加载
 	nblocks = s.s_nzones << s.s_log_zone_size;
 	if (nblocks > (rd_length >> BLOCK_SIZE_BITS)) {
 		printk("Ram disk image too big!  (%d blocks, %d avail)\n", 
@@ -104,7 +111,9 @@ void rd_load(void)
 	printk("Loading %d bytes into ram disk... 0000k", 
 		nblocks << BLOCK_SIZE_BITS);
 	cp = rd_start;
-	while (nblocks) {	// 读软盘上的数据
+
+	// 将磁盘上的根文件系统映像文件复制到虚拟盘上
+	while (nblocks) {
 		if (nblocks > 2) 
 			bh = breada(ROOT_DEV, block, block+1, block+2, -1);
 		else
@@ -123,5 +132,5 @@ void rd_load(void)
 		i++;
 	}
 	printk("\010\010\010\010\010done \n");
-	ROOT_DEV=0x0101;
+	ROOT_DEV=0x0101;	// 修改 root_dev, 使其指向虚拟盘 ramdisk
 }

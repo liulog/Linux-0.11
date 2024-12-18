@@ -346,6 +346,8 @@ void do_hd_request(void)
 
 void hd_init(void)
 {
+	// 对于 hd 来说, MAJOR_NR = 3
+	// 将 do_hd_request 挂到 blk_dev[3].request_fn
 	blk_dev[MAJOR_NR].request_fn = DEVICE_REQUEST;
 	set_intr_gate(0x2E,&hd_interrupt);	// 设置中断门, hd_interrupt
 										// 就是操作中断描述符表

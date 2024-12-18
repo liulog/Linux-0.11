@@ -139,15 +139,19 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none, // sys_for
 	return last_pid;
 }
 
+// 在 task 数组中找到一个空闲的位置
 int find_empty_process(void)
 {
 	int i;
 
+	// 找到下一个 pid
 	repeat:
 		// last_pid 的类型为 long, 有符号, 并且是一个全局累加值
 		if ((++last_pid)<0) last_pid=1;
 		for(i=0 ; i<NR_TASKS ; i++)
 			if (task[i] && task[i]->pid == last_pid) goto repeat;
+	
+	// 找到 task 数组中空闲的一个位置
 	for(i=1 ; i<NR_TASKS ; i++)
 		if (!task[i])
 			return i;

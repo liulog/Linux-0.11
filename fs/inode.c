@@ -311,7 +311,7 @@ static void read_inode(struct m_inode * inode)
 	if (!(sb=get_super(inode->i_dev)))	// 指定设备的超级块
 		panic("trying to read inode without dev");
 
-	// 计算 block 号, 这个 inode 对应inode号-1, （0号不用）
+	// 计算 block 号, 这个 inode 对应 inode号-1, （0号不用）
 	block = 2 + sb->s_imap_blocks + sb->s_zmap_blocks +
 		(inode->i_num-1)/INODES_PER_BLOCK;
 	// 读取对应的 inode

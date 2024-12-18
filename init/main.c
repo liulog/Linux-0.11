@@ -26,7 +26,7 @@ static inline pause(void) __attribute__((always_inline));
 // static 表示该函数仅在当前文件内可见, 而不能被其他文件引用
 // inline 提示编译器尽可能将该函数的代码嵌入到调用该函数的地方
 static inline _syscall0(int,fork)	// 包装系统调用 fork, 表示这是一个不带参数的系统调用, 返回类型为 int
-static inline _syscall0(int,pause)
+static inline _syscall0(int,pause)	// 包装系统调用 pause, 表示这是一个不带参数的系统调用, 返回类型为 int
 static inline _syscall1(int,setup,void *,BIOS)
 static inline _syscall0(int,sync)
 
@@ -62,7 +62,10 @@ extern long startup_time;
  */
 #define EXT_MEM_K (*(unsigned short *)0x90002)
 #define DRIVE_INFO (*(struct drive_info *)0x90080)
-#define ORIG_ROOT_DEV (*(unsigned short *)0x901FC)
+
+// 指定的根文件系统所在的设备
+#define ORIG_ROOT_DEV (*(unsigned short *)0x901FC)	// bootsec 中定义的 root_dev
+
 
 /*
  * Yeah, yeah, it's ugly, but I cannot find how to do this correctly
@@ -114,7 +117,7 @@ void main(void)		/* This really IS void, no error here. */
  */
 
  	ROOT_DEV = ORIG_ROOT_DEV;			// ROOT_DEV
- 	drive_info = DRIVE_INFO;
+ 	drive_info = DRIVE_INFO;			// 拷贝硬盘信息
 	// 1MB + EXT_MEM, 具体的内容
 	memory_end = (1<<20) + (EXT_MEM_K<<10);
 	memory_end &= 0xfffff000;
@@ -135,16 +138,16 @@ void main(void)		/* This really IS void, no error here. */
 #endif
 	mem_init(main_memory_start,memory_end);
 	trap_init();
-	blk_dev_init();
+	blk_dev_init();	// 初始化 request[32] 所有 request.dev=1, request.next=NULL
 	chr_dev_init();
 	tty_init();
 	time_init();
-	sched_init();
-	buffer_init(buffer_memory_end);
-	hd_init();
-	floppy_init();
-	sti();
-	move_to_user_mode();
+	sched_init();	// 设置进程 0 的 TSS、LDT, 并设置了 int80 系统调用 以及时钟中断
+	buffer_init(buffer_memory_end);	// 构造 buffer_head 双向链表
+	hd_init();		// 挂载 do_hd_request 到 blk_dev[3].request_fn, 并配置中断
+	floppy_init();	// 挂载 do_fd_request 到 blk_dev[2].request_fn, 并配置中断
+	sti();					// 都初始化完成之后, 才开启中断
+	move_to_user_mode();	// move_to_user_mode
 	if (!fork()) {		/* we count on this going ok */
 		init();
 	}

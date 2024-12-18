@@ -400,6 +400,8 @@ void do_no_page(unsigned long error_code,unsigned long address)
 	oom();
 }
 
+// mem 管理的是从 1M 到 16M 的内存
+// 并且 mem_map 的类型为 unsigned char[]
 void mem_init(long start_mem, long end_mem)
 {
 	int i;

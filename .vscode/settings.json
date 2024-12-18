@@ -9,6 +9,9 @@
         "type_traits": "cpp",
         "utility": "cpp",
         "*.txx": "cpp",
-        "stddef.h": "c"
+        "stddef.h": "c",
+        "fs.h": "c",
+        "random": "cpp",
+        "head.h": "c"
     }
 }

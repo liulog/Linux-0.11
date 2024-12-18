@@ -311,6 +311,7 @@ void do_timer(long cpl)
 		if (!--beepcount)
 			sysbeepstop();
 
+	// 根据 CPL 来更新用户态或内核态的时间统计
 	if (cpl)
 		current->utime++;
 	else
@@ -331,6 +332,9 @@ void do_timer(long cpl)
 		do_floppy_timer();
 	if ((--current->counter)>0) return;
 	current->counter=0;
+
+	// 如果当前任务运行在内核态, 则直接返回，表示当前任务是一个内核任务，调度逻辑不会被处罚
+	// 如果当前任务运行在用户态, 则调用 schedule 进行任务调度, 切换到其他任务运行
 	if (!cpl) return;
 	schedule();
 }
@@ -389,8 +393,11 @@ void sched_init(void)
 
 	if (sizeof(struct sigaction) != 16)
 		panic("Struct sigaction MUST be 16 bytes");
+	
+	// 设置进程 0 的 TSS 和 LDT
 	set_tss_desc(gdt+FIRST_TSS_ENTRY,&(init_task.task.tss));
 	set_ldt_desc(gdt+FIRST_LDT_ENTRY,&(init_task.task.ldt));
+	// 初始化剩余进程的 TSS 和 LDT
 	p = gdt+2+FIRST_TSS_ENTRY;
 	for(i=1;i<NR_TASKS;i++) {
 		task[i] = NULL;
@@ -400,12 +407,16 @@ void sched_init(void)
 		p++;
 	}
 /* Clear NT, so that we won't have troubles with that later on */
+// NT 指出 TSS 中的 back_link 字段是否有效
+// 复位 NT 标志
 	__asm__("pushfl ; andl $0xffffbfff,(%esp) ; popfl");
-	ltr(0);
-	lldt(0);
+	ltr(0);				// LOAD TSS0 到 tr
+	// 将 gdt 中的 ldt 描述符的小泽付加载到 ldtr, 只加载这一次, 以后新任务的 LDT 的加载, 是 CPU 根据 TSS 中的 LDT 项自动加载
+	lldt(0);			// LOAD LDT0 到 ldtr
 	outb_p(0x36,0x43);		/* binary, mode 3, LSB/MSB, ch 0 */
 	outb_p(LATCH & 0xff , 0x40);	/* LSB */
 	outb(LATCH >> 8 , 0x40);	/* MSB */
+	// 设置时钟中断
 	set_intr_gate(0x20,&timer_interrupt);
 	outb(inb_p(0x21)&~0x01,0x21);
 	// 设置系统调用门

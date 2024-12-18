@@ -349,37 +349,46 @@ struct buffer_head * breada(int dev,int first, ...)
 	return (NULL);
 }
 
+// 注：640KB-1MB 被显存和BIOS占用, 要避开这一段地址
 void buffer_init(long buffer_end)
 {
 	struct buffer_head * h = start_buffer;
 	void * b;
 	int i;
 
+	// 从 buffern_end 开始向下递减
 	if (buffer_end == 1<<20)
 		b = (void *) (640*1024);
 	else
 		b = (void *) buffer_end;
+	// 初始化缓冲区, 建立空闲缓冲区环链表，并获取系统中的缓冲块的数目
+	// 在缓冲区高端划分 1K 大小的缓冲块，与此同时，在缓冲区低端建立描述该缓冲块的结构 buffer_head
+	// 并将这些 buffer_head 组成双向链表
+	// h 是指向 buffer_head 的指针，h+1 指向下一个 buffer_head 地址
 	while ( (b -= BLOCK_SIZE) >= ((void *) (h+1)) ) {
-		h->b_dev = 0;
-		h->b_dirt = 0;
-		h->b_count = 0;
-		h->b_lock = 0;
+		h->b_dev = 0;		// 该缓冲区的设备号
+		h->b_dirt = 0;		// 脏标志
+		h->b_count = 0;		// 引用计数
+		h->b_lock = 0;		// 锁
 		h->b_uptodate = 0;
-		h->b_wait = NULL;		// buffer_init 时 b_wait 都设置为 NULL
-		h->b_next = NULL;
-		h->b_prev = NULL;
-		h->b_data = (char *) b;
-		h->b_prev_free = h-1;
-		h->b_next_free = h+1;
-		h++;
-		NR_BUFFERS++;
-		if (b == (void *) 0x100000)
+		h->b_wait = NULL;		// buffer_init 时 b_wait 都设置为 NULL, 等待该缓冲区解锁的进程
+		h->b_next = NULL;		// 指向具有相同 hash 值的下一个缓冲头
+		h->b_prev = NULL;		// 指向具有相同 hash 值的上一个缓冲头
+		h->b_data = (char *) b;	// 指向对应缓冲区的数据块
+		h->b_prev_free = h-1;	// 指向 free_list 中的前一个
+		h->b_next_free = h+1;	// 指向 free_list 中的后一个
+		h++;					// 下一个 buffer_head
+		NR_BUFFERS++;			// 缓冲区快熟 ++
+		if (b == (void *) 0x100000)	// 如果 b 递减到 1MB, 跳过 384 KB, 重新从 0xA0000 向下
 			b = (void *) 0xA0000;
 	}
 	h--;
-	free_list = start_buffer;
+	// buffer_head 构成环形链表 free_list 指向第一个 buffer_head
+	free_list = start_buffer;	
 	free_list->b_prev_free = h;
 	h->b_next_free = free_list;
+
+	// 初始化 hash_table
 	for (i=0;i<NR_HASH;i++)
 		hash_table[i]=NULL;
 }	

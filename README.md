@@ -7,6 +7,10 @@ Linux-0.11
 
 仅针对 Linux 进行了测试
 
+UCAS 杨力祥《操作系统高级教程》
+
+思考题: https://ydv805uda4.feishu.cn/docx/DpdYdmDqnoJQecxfLKmcS0e1nYg
+
 ## 如何使用
 
 ```bash
